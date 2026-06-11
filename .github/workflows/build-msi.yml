@@ -18,16 +18,16 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
     
-    # 💡 [핵심 해결책 1] 배치 파일 내부의 'Visual Studio 18 2026' 글자를 'Visual Studio 17 2022'로 수정합니다.
+    # 💡 [치환 패치 1] 배치 파일 내부의 'Visual Studio 18 2026' 글자를 'Visual Studio 17 2022'로 수정합니다.
     - name: Patch VS 2026 to VS 2022 (Batch)
       run: |
         powershell -Command "(Get-Content BuildDependenciesRelease.bat) -replace 'Visual Studio 18 2026', 'Visual Studio 17 2022' | Set-Content BuildDependenciesRelease.bat"
       shell: cmd
 
-    # 💡 [핵심 해결책 2] 프로젝트 파일(.vcxproj) 내부의 컴파일러 버전을 v145에서 v143(VS 2022)으로 강제 변환합니다.
+    # 💡 [치환 패치 2] -Recursive 오타를 단수형인 -Recurse로 정확하게 교정했습니다.
     - name: Patch Platform Toolset v145 to v143
       run: |
-        powershell -Command "Get-ChildItem -Filter *.vcxproj -Recursive | ForEach-Object { (Get-Content $_.FullName) -replace '<PlatformToolset>v145</PlatformToolset>', '<PlatformToolset>v143</PlatformToolset>' | Set-Content $_.FullName }"
+        powershell -Command "Get-ChildItem -Filter *.vcxproj -Recurse | ForEach-Object { (Get-Content $_.FullName) -replace '<PlatformToolset>v145</PlatformToolset>', '<PlatformToolset>v143</PlatformToolset>' | Set-Content $_.FullName }"
       shell: cmd
 
     # 1단계: 누겟 복구 및 패치된 스크립트로 의존성 컴파일 수행
