@@ -3,6 +3,10 @@ name: Build MSI Installer
 on:
   workflow_dispatch:
 
+# 💡 시스템이 요구한 Node.js 24 강제 전환 설정을 환경 변수로 등록합니다.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     runs-on: windows-2022
@@ -12,10 +16,16 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    # 2단계: WXS 파일 내용을 가상 머신에 실시간으로 직접 쓰기 (오류 원천 차단)
+    # 2단계: 환경 설정 파일 실시간 생성
+    - name: Generate Source File
+      run: |
+        echo "ExplorerPatcher Build Note" > build_note.txt
+      shell: cmd
+
+    # 3단계: 임시 WXS 소스 파일 작성 (경로 문제 차단)
     - name: Generate WiX Source File
       run: |
-        cat << 'EOF' > inline_build.wxs
+        cat << 'EOF' > test_build.wxs
         <?xml version="1.0" encoding="UTF-8"?>
         <Wix xmlns="http://microsoft.com">
           <Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
@@ -29,7 +39,7 @@ jobs:
             </Directory>
             <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
               <Component Id="MainConfig" Guid="87654321-4321-4321-4321-CBA987654321">
-                <File Id="ConfigNote" Name="Readme.txt" Source="inline_build.wxs" KeyPath="yes" />
+                <File Id="ConfigNote" Name="Readme.txt" Source="build_note.txt" KeyPath="yes" />
               </Component>
             </ComponentGroup>
             <Feature Id="MainFeature" Title="ExplorerPatcher Installation" Level="1">
@@ -40,14 +50,14 @@ jobs:
         EOF
       shell: bash
 
-    # 3단계: 방금 생성된 인라인 파일로 빌드 수행
+    # 4단계: 컴파일 및 빌드
     - name: Compile WiX Source
       run: |
-        candle.exe inline_build.wxs
-        light.exe inline_build.wixobj -out ExplorerPatcher.msi
+        candle.exe test_build.wxs
+        light.exe test_build.wixobj -out ExplorerPatcher.msi
       shell: cmd
 
-    # 4단계: 빌드된 MSI 파일 저장
+    # 5단계: 최종 파일 업로드
     - name: Upload MSI Artifact
       uses: actions/upload-artifact@v4
       with:
