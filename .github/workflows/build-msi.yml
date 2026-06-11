@@ -1,0 +1,33 @@
+name: Build MSI Installer
+
+on:
+  workflow_dispatch: # 사용자가 직접 버튼을 눌러 수동으로 실행할 수 있게 합니다.
+
+jobs:
+  build:
+    runs-on: windows-latest # WiX Toolset과 Windows SDK가 필요한 빌드이므로 Windows 환경을 사용합니다.
+
+    steps:
+    # 1단계: 저장소 코드 가져오기
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    # 2단계: WiX Toolset 설치 및 환경 변수 등록
+    - name: Install and Setup WiX Toolset
+      run: |
+        dotnet tool install --global wix --version 4.0.5
+        echo "C:\Users\runneradmin\.dotnet\tools" >> $GITHUB_PATH
+      shell: pwsh
+
+    # 3단계: WiX 컴파일 (WXS -> WIXOBJ)
+    - name: Compile WiX Source
+      run: |
+        wix build ExplorerPatcher.wxs -o ExplorerPatcher.msi
+      shell: pwsh
+
+    # 4단계: 빌드된 MSI 파일을 GitHub 결과물로 업로드
+    - name: Upload MSI Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ExplorerPatcher-MSI
+        path: ExplorerPatcher.msi
