@@ -18,10 +18,16 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
     
-    # 💡 [핵심 해결책] 배치 파일 내부의 'Visual Studio 18 2026' 글자를 'Visual Studio 17 2022'로 강제 수정합니다.
-    - name: Patch VS 2026 to VS 2022
+    # 💡 [핵심 해결책 1] 배치 파일 내부의 'Visual Studio 18 2026' 글자를 'Visual Studio 17 2022'로 수정합니다.
+    - name: Patch VS 2026 to VS 2022 (Batch)
       run: |
         powershell -Command "(Get-Content BuildDependenciesRelease.bat) -replace 'Visual Studio 18 2026', 'Visual Studio 17 2022' | Set-Content BuildDependenciesRelease.bat"
+      shell: cmd
+
+    # 💡 [핵심 해결책 2] 프로젝트 파일(.vcxproj) 내부의 컴파일러 버전을 v145에서 v143(VS 2022)으로 강제 변환합니다.
+    - name: Patch Platform Toolset v145 to v143
+      run: |
+        powershell -Command "Get-ChildItem -Filter *.vcxproj -Recursive | ForEach-Object { (Get-Content $_.FullName) -replace '<PlatformToolset>v145</PlatformToolset>', '<PlatformToolset>v143</PlatformToolset>' | Set-Content $_.FullName }"
       shell: cmd
 
     # 1단계: 누겟 복구 및 패치된 스크립트로 의존성 컴파일 수행
@@ -31,14 +37,14 @@ jobs:
         call BuildDependenciesRelease.bat
       shell: cmd
 
-    # 2단계: 공식 빌드 규격에 맞춰 IA-32와 amd64 아키텍처를 순서대로 전면 컴파일
+    # 2단계: 플랫폼 도구 버전이 완벽히 맞춰진 상태에서 소스코드 전면 컴파일 수행
     - name: Compile Real ExplorerPatcher Source
       run: |
         msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="IA-32"
         msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="amd64"
       shell: cmd
 
-    # 3단계: 최종 완성된 공식 규격의 진짜 ep_setup.exe 결과물 업로드
+    # 3단계: 최종 컴파일 완료된 진짜 ep_setup.exe 결과물 업로드
     - name: Upload Real Program Artifact
       uses: actions/upload-artifact@v4
       with:
