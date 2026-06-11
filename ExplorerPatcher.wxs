@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+    <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+    
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher">
+          <!-- 💡 가상 머신이 찾아낸 진짜 ep_setup.exe가 이 자리에 들어갑니다 -->
+          <Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321">
+            <File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+    
+    <Feature Id="MainFeature" Title="ExplorerPatcher" Level="1">
+      <ComponentRef Id="MainApp" />
+    </Feature>
+  </Product>
+</Wix>
