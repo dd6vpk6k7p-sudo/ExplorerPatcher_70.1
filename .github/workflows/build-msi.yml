@@ -18,7 +18,7 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
     
-    # 1. VS 2026 요구 규격을 가상 머신의 VS 2022 환경으로 강제 다운그레이드
+    # 1. 컴파일러 버전 하향 패치
     - name: Patch VS 2026 to VS 2022 (Batch)
       run: |
         powershell -Command "(Get-Content BuildDependenciesRelease.bat) -replace 'Visual Studio 18 2026', 'Visual Studio 17 2022' | Set-Content BuildDependenciesRelease.bat"
@@ -29,41 +29,33 @@ jobs:
         powershell -Command "Get-ChildItem -Filter *.vcxproj -Recurse | ForEach-Object { (Get-Content $_.FullName) -replace '<PlatformToolset>v145</PlatformToolset>', '<PlatformToolset>v143</PlatformToolset>' | Set-Content $_.FullName }"
       shell: cmd
 
-    # 2. 누겟 복구 및 하위 의존성 컴파일
+    # 2. 의존성 및 본체 컴파일 진행
     - name: Restore and Build Dependencies
       run: |
         nuget restore ExplorerPatcher.sln
         call BuildDependenciesRelease.bat
       shell: cmd
 
-    # 3. 진짜 ExplorerPatcher 원본 소스코드 컴파일 실행 (알맹이 생성)
     - name: Compile Real ExplorerPatcher Source
       run: |
         msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="IA-32"
         msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="amd64"
       shell: cmd
 
-    # 4. 컴파일러가 뱉어낸 진짜 ep_setup.exe를 포착하여 루트 경로로 복사 전송
+    # 3. 컴파일 완료된 진짜 실행 파일을 루트 경로의 wxs 파일 옆으로 복사
     - name: Locate and Copy Real Binary
       run: |
         powershell -Command "Copy-Item (Get-ChildItem -Filter ep_setup.exe -Recurse | Select-Object -First 1).FullName -Destination ./ep_setup.exe"
       shell: cmd
 
-    # 5. 복사된 진짜 파일을 뼈대로 삼는 WiX 설정 파일(ExplorerPatcher.wxs) 실시간 주입
-    - name: Inject ExplorerPatcher WXS File
-      run: |
-        $wxs = '<?xml version="1.0" encoding="UTF-8"?><Wix xmlns="http://microsoft.com"><Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC"><Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" /><Media Id="1" Cabinet="media1.cab" EmbedCab="yes" /><Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="ProgramFilesFolder"><Directory Id="INSTALLFOLDER" Name="ExplorerPatcher"><Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321"><File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" /></Component></Directory></Directory></Directory><Feature Id="MainFeature" Title="ExplorerPatcher" Level="1"><ComponentRef Id="MainApp" /></Feature></Product></Wix>'
-        Set-Content -Path ExplorerPatcher.wxs -Value $wxs -Encoding UTF8
-      shell: pwsh
-
-    # 6. WiX 컴파일러로 진짜 알맹이가 내장된 최종 .msi 확장자 파일 조립
+    # 4. 💡 저장소에 담긴 온전한 ExplorerPatcher.wxs 파일을 가져와 에러 없이 다이렉트 빌드
     - name: Packaging Final MSI
       run: |
         candle.exe ExplorerPatcher.wxs
         light.exe -sval ExplorerPatcher.wixobj -out ExplorerPatcher.msi
       shell: cmd
 
-    # 7. 완성된 최종 .msi 파일을 보관함으로 업로드
+    # 5. 완성된 최종 진짜 .msi 파일 보관함 업로드
     - name: Upload Real MSI Artifact
       uses: actions/upload-artifact@v4
       with:
