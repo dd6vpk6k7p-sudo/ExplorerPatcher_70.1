@@ -1,31 +1,36 @@
-<Wix xmlns="http://wixtoolset.org">
-  <!-- 1. 패키지 기본 정보 설정 (제품명, 제조사, 버전, 업그레이드 코드 등) -->
-  <Package Name="ExplorerPatcher" 
-           Manufacturer="ExplorerPatcher Team" 
-           Version="1.0.0" 
-           UpgradeCode="12345678-1234-1234-1234-123456789abc" 
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://microsoft.com">
+  <!-- WiX v3 규격에 맞춘 기본 패키지 설정 -->
+  <Product Id="*" 
+           Name="ExplorerPatcher" 
            Language="1042" 
-           Scope="perMachine">
+           Version="1.0.0" 
+           Manufacturer="ExplorerPatcher Team" 
+           UpgradeCode="12345678-1234-1234-1234-123456789abc">
+    
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine" />
 
     <MajorUpgrade DowngradeErrorMessage="이미 더 새로운 버전이 설치되어 있습니다." />
 
-    <!-- 2. 설치 파일의 미디어 매체 정의 (캐비닛 파일 생성) -->
+    <!-- 캐비닛 파일 임베드 설정 -->
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- 3. 프로그램이 설치될 폴더 구조 정의 (C:\Program Files\ExplorerPatcher) -->
-    <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher" />
-    </StandardDirectory>
+    <!-- 설치 폴더 구조 정의 (WiX v3 스타일) -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher" />
+      </Directory>
+      <Directory Id="DesktopFolder" Name="Desktop" />
+    </Directory>
 
-    <!-- 4. 바탕화면 폴더 정의 (바로가기 생성용) -->
-    <StandardDirectory Id="DesktopFolder" />
-
-    <!-- 5. 실제 설치될 파일 및 구성 요소(Component) 정의 -->
+    <!-- 설치 파일 구성 요소 설정 -->
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="MainExecutable" Guid="87654321-4321-4321-4321-cba987654321">
-        <!-- 💡 빌드 가상 환경에 파일이 임시로 생성된다고 가정하여 텍스트 파일을 배치하는 임시 예시입니다. -->
+        <!-- 가상 컴퓨터 환경의 기본 파일을 파일 이름으로 매핑 -->
         <File Id="DummyFile" Source="README.md" Name="ExplorerPatcher.exe" KeyPath="yes">
-          <!-- 바탕화면에 바로가기 아이콘 생성 설정 -->
+          <!-- 바탕화면 바로가기 생성 -->
           <Shortcut Id="DesktopShortcut" 
                     Directory="DesktopFolder" 
                     Name="ExplorerPatcher" 
@@ -35,10 +40,9 @@
       </Component>
     </ComponentGroup>
 
-    <!-- 6. 위에서 정의한 구성 요소를 실제 패키지에 포함 기능으로 등록 -->
+    <!-- 실제 패키징 처리할 기능 등록 -->
     <Feature Id="MainFeature" Title="ExplorerPatcher Installation" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
     </Feature>
-
-  </Package>
+  </Product>
 </Wix>
