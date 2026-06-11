@@ -1,4 +1,3 @@
-yaml
 name: Build ExplorerPatcher Real MSI
 on:
   workflow_dispatch:
