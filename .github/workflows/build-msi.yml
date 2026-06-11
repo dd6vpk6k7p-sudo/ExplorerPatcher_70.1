@@ -1,6 +1,8 @@
-name: Build ExplorerPatcher Real MSI
+name: Build ExplorerPatcher Real EXE
+
 on:
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: windows-latest
@@ -9,30 +11,36 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
+
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
+
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
-    - name: Restore and Build
+    
+    # 💡 [핵심 해결책] 배치 파일 내부의 'Visual Studio 18 2026' 글자를 'Visual Studio 17 2022'로 강제 수정합니다.
+    - name: Patch VS 2026 to VS 2022
+      run: |
+        powershell -Command "(Get-Content BuildDependenciesRelease.bat) -replace 'Visual Studio 18 2026', 'Visual Studio 17 2022' | Set-Content BuildDependenciesRelease.bat"
+      shell: cmd
+
+    # 1단계: 누겟 복구 및 패치된 스크립트로 의존성 컴파일 수행
+    - name: Restore and Build Dependencies
       run: |
         nuget restore ExplorerPatcher.sln
-        set "GYM_MSBUILD_VERSION=17.0"
-        set "CMAKE_GENERATOR=Visual Studio 17 2022"
         call BuildDependenciesRelease.bat
+      shell: cmd
+
+    # 2단계: 공식 빌드 규격에 맞춰 IA-32와 amd64 아키텍처를 순서대로 전면 컴파일
+    - name: Compile Real ExplorerPatcher Source
+      run: |
+        msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="IA-32"
         msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="amd64"
       shell: cmd
-    - name: Create WiX File
-      run: |
-        $wxs = '<?xml version="1.0" encoding="UTF-8"?><Wix xmlns="http://microsoft.com"><Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC"><Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" /><Media Id="1" Cabinet="media1.cab" EmbedCab="yes" /><Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="ProgramFilesFolder"><Directory Id="INSTALLFOLDER" Name="ExplorerPatcher"><Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321"><File Id="EP_Exe" Name="ep_setup.exe" Source="build\Release\ep_setup.exe" KeyPath="yes" /></Component></Directory></Directory></Directory><Feature Id="MainFeature" Title="ExplorerPatcher" Level="1"><ComponentRef Id="MainApp" /></Feature></Product></Wix>'
-        Set-Content -Path final_build.wxs -Value $wxs -Encoding UTF8
-      shell: pwsh
-    - name: Packaging Final MSI
-      run: |
-        candle.exe final_build.wxs
-        light.exe -sval final_build.wixobj -out ExplorerPatcher.msi
-      shell: cmd
-    - name: Upload Real MSI Artifact
+
+    # 3단계: 최종 완성된 공식 규격의 진짜 ep_setup.exe 결과물 업로드
+    - name: Upload Real Program Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ExplorerPatcher-Final-MSI
-        path: ExplorerPatcher.msi
+        name: ExplorerPatcher-Official-Setup
+        path: build/Release/ep_setup.exe
