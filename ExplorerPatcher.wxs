@@ -1,19 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<Wix xmlns="http://microsoft.com">
   <Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
-    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+    <!-- InstallPrivileges="elevator" 설정을 통해 윈도우 최고 관리자 권한을 인스톨러에 강제 부여합니다. -->
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevator" />
     <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
     
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher">
-          <!-- 💡 가상 머신이 찾아낸 진짜 ep_setup.exe가 이 자리에 들어갑니다 -->
+          <!-- 가상 머신이 컴파일한 진짜 ep_setup.exe가 이 자리에 물리적으로 매핑됩니다 -->
           <Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321">
             <File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" />
           </Component>
         </Directory>
       </Directory>
     </Directory>
+    
+    <!-- MSI 파일 복사가 끝나는 즉시, 윈도우 익스플로러 제어 권한을 획득하여 실구동 프로세스를 주입합니다. -->
+    <CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="check" Impersonate="no" />
+
+    <InstallExecuteSequence>
+      <Custom Action="LaunchQuietly" After="InstallFiles">NOT Installed</Custom>
+    </InstallExecuteSequence>
     
     <Feature Id="MainFeature" Title="ExplorerPatcher" Level="1">
       <ComponentRef Id="MainApp" />
