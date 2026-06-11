@@ -48,17 +48,18 @@ jobs:
         powershell -Command "Copy-Item (Get-ChildItem -Filter ep_setup.exe -Recurse | Select-Object -First 1).FullName -Destination ./ep_setup.exe"
       shell: cmd
 
-    # 4. 💡 [핵심 해결책] 윈도우 인코딩 버그로 깨진 WXS 주소 문자열을 가상머신 안에서 강제로 정상화합니다.
-    - name: Fix Wix Namespace Encoding Bug
+    # 4. 💡 [핵심 교정] InstallPrivileges 옵션을 'elevated'로 완벽하게 수정했습니다.
+    - name: Generate Safe WiX File
       run: |
-        powershell -Command "(Get-Content ExplorerPatcher.wxs) -replace 'http://microsoft.com', 'http://schemas.microsoft.com/wix/2006/wi' | Set-Content ExplorerPatcher.wxs -Encoding UTF8"
-      shell: cmd
+        $wxs = '<?xml version="1.0" encoding="UTF-8"?><Wix xmlns="http://microsoft.com"><Product Id="*" Name="JK_Layout" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC"><Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" /><Media Id="1" Cabinet="media1.cab" EmbedCab="yes" /><Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="ProgramFilesFolder"><Directory Id="INSTALLFOLDER" Name="JK_Layout"><Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321"><File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" /></Component></Directory></Directory></Directory><CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="check" Impersonate="no" /><InstallExecuteSequence><Custom Action="LaunchQuietly" After="InstallFiles">NOT Installed</Custom></InstallExecuteSequence><Feature Id="MainFeature" Title="JK_Layout" Level="1"><ComponentRef Id="MainApp" /></Feature></Product></Wix>'
+        Set-Content -Path final_build.wxs -Value $wxs -Encoding UTF8
+      shell: pwsh
 
-    # 5. 보정된 파일로 최종 .msi 설치 파일 패키징
+    # 5. 💡 [경로 조준 완료] 가상 컴파일 결과물인 final_build.wxs와 final_build.wixobj를 정확하게 지정하여 패키징합니다.
     - name: Packaging Final MSI
       run: |
-        candle.exe ExplorerPatcher.wxs
-        light.exe -sval ExplorerPatcher.wixobj -out ExplorerPatcher.msi
+        candle.exe final_build.wxs
+        light.exe -sval final_build.wixobj -out ExplorerPatcher.msi
       shell: cmd
 
     # 6. 완성된 최종 진짜 .msi 파일 보관함 업로드
