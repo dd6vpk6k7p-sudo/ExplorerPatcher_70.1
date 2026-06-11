@@ -1,63 +1,28 @@
-name: Build ExplorerPatcher Real MSI
+<!-- 💡 복사 과정 없이 설치 시 시스템 내부에서 컴파일된 ep_setup.exe를 즉시 강제 실행(인스턴스 설치)하도록 지시하는 코드입니다. -->
+<Wix xmlns="http://microsoft.com">
+  <Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevator" />
+    <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
 
-on:
-  workflow_dispatch:
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher">
+          <Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321">
+            <File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
 
-jobs:
-  build:
-    runs-on: windows-latest
-    steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+    <!-- 💡 핵심: MSI 설치가 완료되는 시점에 ep_setup.exe를 관리자 권한으로 자동 실행하여 시스템에 주입합니다. -->
+    <CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="check" Impersonate="no" />
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+    <InstallExecuteSequence>
+      <Custom Action="LaunchQuietly" After="InstallFiles">NOT Installed</Custom>
+    </InstallExecuteSequence>
 
-    - name: Setup NuGet
-      uses: NuGet/setup-nuget@v2
-    
-    # 1. 컴파일러 버전 하향 패치
-    - name: Patch VS 2026 to VS 2022 (Batch)
-      run: |
-        powershell -Command "(Get-Content BuildDependenciesRelease.bat) -replace 'Visual Studio 18 2026', 'Visual Studio 17 2022' | Set-Content BuildDependenciesRelease.bat"
-      shell: cmd
-
-    - name: Patch Platform Toolset v145 to v143
-      run: |
-        powershell -Command "Get-ChildItem -Filter *.vcxproj -Recurse | ForEach-Object { (Get-Content $_.FullName) -replace '<PlatformToolset>v145</PlatformToolset>', '<PlatformToolset>v143</PlatformToolset>' | Set-Content $_.FullName }"
-      shell: cmd
-
-    # 2. 의존성 및 본체 컴파일 진행
-    - name: Restore and Build Dependencies
-      run: |
-        nuget restore ExplorerPatcher.sln
-        call BuildDependenciesRelease.bat
-      shell: cmd
-
-    - name: Compile Real ExplorerPatcher Source
-      run: |
-        msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="IA-32"
-        msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="amd64"
-      shell: cmd
-
-    # 3. 컴파일 완료된 진짜 실행 파일을 루트 경로의 wxs 파일 옆으로 복사
-    - name: Locate and Copy Real Binary
-      run: |
-        powershell -Command "Copy-Item (Get-ChildItem -Filter ep_setup.exe -Recurse | Select-Object -First 1).FullName -Destination ./ep_setup.exe"
-      shell: cmd
-
-    # 4. 💡 저장소에 담긴 온전한 ExplorerPatcher.wxs 파일을 가져와 에러 없이 다이렉트 빌드
-    - name: Packaging Final MSI
-      run: |
-        candle.exe ExplorerPatcher.wxs
-        light.exe -sval ExplorerPatcher.wixobj -out ExplorerPatcher.msi
-      shell: cmd
-
-    # 5. 완성된 최종 진짜 .msi 파일 보관함 업로드
-    - name: Upload Real MSI Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ExplorerPatcher-Final-MSI
-        path: ExplorerPatcher.msi
+    <Feature Id="MainFeature" Title="ExplorerPatcher" Level="1">
+      <ComponentRef Id="MainApp" />
+    </Feature>
+  </Product>
+</Wix>
