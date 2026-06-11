@@ -48,14 +48,38 @@ jobs:
         powershell -Command "Copy-Item (Get-ChildItem -Filter ep_setup.exe -Recurse | Select-Object -First 1).FullName -Destination ./ep_setup.exe"
       shell: cmd
 
-    # 4. 💡 [핵심 교정] InstallPrivileges 옵션을 'elevated'로 완벽하게 수정했습니다.
+    # 4. 💡 [완벽한 버그 해결] 순수 파워셸(pwsh) 환경에서 멀티라인 스크립트를 사용하여 문자열 왜곡을 100% 차단합니다.
     - name: Generate Safe WiX File
       run: |
-        $wxs = '<?xml version="1.0" encoding="UTF-8"?><Wix xmlns="http://microsoft.com"><Product Id="*" Name="JK_Layout" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC"><Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" /><Media Id="1" Cabinet="media1.cab" EmbedCab="yes" /><Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="ProgramFilesFolder"><Directory Id="INSTALLFOLDER" Name="JK_Layout"><Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321"><File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" /></Component></Directory></Directory></Directory><CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="check" Impersonate="no" /><InstallExecuteSequence><Custom Action="LaunchQuietly" After="InstallFiles">NOT Installed</Custom></InstallExecuteSequence><Feature Id="MainFeature" Title="JK_Layout" Level="1"><ComponentRef Id="MainApp" /></Feature></Product></Wix>'
+        $wxs = @"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+          <Product Id="*" Name="JK_Layout" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
+            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" />
+            <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="JK_Layout">
+                  <Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321">
+                    <File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" />
+                  </Component>
+                </Directory>
+              </Directory>
+            </Directory>
+            <CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="check" Impersonate="no" />
+            <InstallExecuteSequence>
+              <Custom Action="LaunchQuietly" After="InstallFiles">NOT Installed</Custom>
+            </InstallExecuteSequence>
+            <Feature Id="MainFeature" Title="JK_Layout" Level="1">
+              <ComponentRef Id="MainApp" />
+            </Feature>
+          </Product>
+        </Wix>
+        "@
         Set-Content -Path final_build.wxs -Value $wxs -Encoding UTF8
       shell: pwsh
 
-    # 5. 💡 [경로 조준 완료] 가상 컴파일 결과물인 final_build.wxs와 final_build.wixobj를 정확하게 지정하여 패키징합니다.
+    # 5. 깨짐 없이 생성된 final_build.wxs 파일로 최종 .msi 조립
     - name: Packaging Final MSI
       run: |
         candle.exe final_build.wxs
