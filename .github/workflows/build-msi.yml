@@ -1,0 +1,33 @@
+name: Build ExplorerPatcher Real MSI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+    - uses: actions/checkout@v4
+      with: {submodules: recursive}
+    - uses: microsoft/setup-msbuild@v2
+    - uses: NuGet/setup-nuget@v2
+    
+    # 공식 문서 기준 필수 3단계 적용
+    - name: Restore and Build
+      run: |
+        nuget restore ExplorerPatcher.sln
+        call BuildDependenciesRelease.bat
+        msbuild ExplorerPatcher.sln /p:Configuration=Release /p:Platform=x64
+      shell: cmd
+      
+    - name: Packaging MSI
+      run: |
+        # 실제 ep_setup.exe 위치를 WiX에 반영하는 단계 (생략)
+        candle.exe -nologo setup.wxs
+        light.exe -nologo -sval setup.wixobj -out ExplorerPatcher.msi
+      shell: cmd
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ExplorerPatcher-Final-MSI
+        path: ExplorerPatcher.msi
