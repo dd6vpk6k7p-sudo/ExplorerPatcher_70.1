@@ -20,38 +20,34 @@ jobs:
         echo "ExplorerPatcher Build Note" > build_note.txt
       shell: cmd
 
-    # 2단계: 에러를 방지하도록 가장 단순화된 WXS 파일 생성
+    # 2단계: 💡 특수문자 왜곡이 전혀 없는 파워셸 방식으로 WXS 소스 생성
     - name: Generate WiX Source File
       run: |
-        cat << 'EOF' > test_build.wxs
+        $wxsContent = @"
         <?xml version="1.0" encoding="UTF-8"?>
-        <Wix xmlns="http://microsoft.com">
+        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
           <Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
             <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
-            
-            <!-- 미디어 및 압축 파일 구조 단순화 -->
             <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
-
             <Directory Id="TARGETDIR" Name="SourceDir">
               <Directory Id="ProgramFilesFolder">
                 <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher">
-                  <!-- 핵심 컴포넌트 -->
                   <Component Id="MainConfig" Guid="87654321-4321-4321-4321-CBA987654321">
                     <File Id="ConfigNote" Name="Readme.txt" Source="build_note.txt" KeyPath="yes" />
                   </Component>
                 </Directory>
               </Directory>
             </Directory>
-
             <Feature Id="MainFeature" Title="ExplorerPatcher Installation" Level="1">
               <ComponentRef Id="MainConfig" />
             </Feature>
           </Product>
         </Wix>
-        EOF
-      shell: bash
+        "@
+        Set-Content -Path test_build.wxs -Value $wxsContent -Encoding UTF8
+      shell: pwsh
 
-    # 3단계: 💡 내부 유효성 검사 에러를 완벽히 건너뛰도록 강제 옵션(-sval) 추가
+    # 3단계: 컴파일 및 빌드
     - name: Compile WiX Source
       run: |
         candle.exe test_build.wxs
