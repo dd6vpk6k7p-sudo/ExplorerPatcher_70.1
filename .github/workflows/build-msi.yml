@@ -5,29 +5,21 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022 # 환경 변화 영향이 없는 안정적인 2022 버전을 강제 지정합니다.
 
     steps:
-    # 1단계: Git 에러 방지를 위해 명시적으로 브랜치 체크아웃 설정
+    # 1단계: 소스 코드 가져오기
     - name: Checkout Source Code
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 1 # 속도 향상 및 오류 방지를 위해 최신 커밋 1개만 가져옵니다.
 
-    # 2단계: WiX Toolset 설치 및 환경 변수 등록
-    - name: Install and Setup WiX Toolset
-      run: |
-        dotnet tool install --global wix --version 4.0.5
-        echo "C:\Users\runneradmin\.dotnet\tools" >> $GITHUB_PATH
-      shell: pwsh
-
-    # 3단계: WiX 컴파일 (WXS -> WIXOBJ)
+    # 2단계: 기존에 탑재된 레거시 WiX v3 명령어(candle, light)를 사용해 빌드
     - name: Compile WiX Source
       run: |
-        wix build ExplorerPatcher.wxs -o ExplorerPatcher.msi
-      shell: pwsh
+        candle.exe ExplorerPatcher.wxs
+        light.exe ExplorerPatcher.wixobj -out ExplorerPatcher.msi
+      shell: cmd
 
-    # 4단계: 빌드된 MSI 파일을 GitHub 결과물로 업로드
+    # 3단계: 빌드된 MSI 파일 저장
     - name: Upload MSI Artifact
       uses: actions/upload-artifact@v4
       with:
