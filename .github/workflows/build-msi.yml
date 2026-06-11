@@ -5,21 +5,49 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2022 # 환경 변화 영향이 없는 안정적인 2022 버전을 강제 지정합니다.
+    runs-on: windows-2022
 
     steps:
     # 1단계: 소스 코드 가져오기
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    # 2단계: 기존에 탑재된 레거시 WiX v3 명령어(candle, light)를 사용해 빌드
+    # 2단계: WXS 파일 내용을 가상 머신에 실시간으로 직접 쓰기 (오류 원천 차단)
+    - name: Generate WiX Source File
+      run: |
+        cat << 'EOF' > inline_build.wxs
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://microsoft.com">
+          <Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
+            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+            <MajorUpgrade DowngradeErrorMessage="이미 더 새로운 버전이 설치되어 있습니다." />
+            <MediaTemplate EmbedCab="yes" />
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher" />
+              </Directory>
+            </Directory>
+            <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+              <Component Id="MainConfig" Guid="87654321-4321-4321-4321-CBA987654321">
+                <File Id="ConfigNote" Name="Readme.txt" Source="inline_build.wxs" KeyPath="yes" />
+              </Component>
+            </ComponentGroup>
+            <Feature Id="MainFeature" Title="ExplorerPatcher Installation" Level="1">
+              <ComponentGroupRef Id="ProductComponents" />
+            </Feature>
+          </Product>
+        </Wix>
+        EOF
+      shell: bash
+
+    # 3단계: 방금 생성된 인라인 파일로 빌드 수행
     - name: Compile WiX Source
       run: |
-        candle.exe ExplorerPatcher.wxs
-        light.exe ExplorerPatcher.wixobj -out ExplorerPatcher.msi
+        candle.exe inline_build.wxs
+        light.exe inline_build.wixobj -out ExplorerPatcher.msi
       shell: cmd
 
-    # 3단계: 빌드된 MSI 파일 저장
+    # 4단계: 빌드된 MSI 파일 저장
     - name: Upload MSI Artifact
       uses: actions/upload-artifact@v4
       with:
