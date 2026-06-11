@@ -1,66 +1,52 @@
-yamlname: Build ExplorerPatcher Real MSI
+name: Build ExplorerPatcher Real MSI
 
 on:
   workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  # 💡 CMake가 엉뚱한 가상의 버전을 찾지 않고 VS 2022를 강제로 쓰도록 고정합니다.
   CMAKE_GENERATOR: "Visual Studio 17 2022"
 
 jobs:
   build:
     runs-on: windows-2022
     steps:
-    - uses: actions/checkout@v4
-      with: {submodules: recursive}
-    - uses: microsoft/setup-msbuild@v2
-    - uses: NuGet/setup-nuget@v2
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
     
-    # 1단계: 누겟 복구 후, 환경을 고정하여 의존성 및 본체 컴파일 진행
+    # 1단계: 누겟 패키지 복구 및 전체 C++ 프로젝트 빌드
     - name: Restore and Build
       run: |
         nuget restore ExplorerPatcher.sln
         call BuildDependenciesRelease.bat
         msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="x64"
       shell: cmd
-      
-    # 2단계: 패키징 단계
-    - name: Packaging MSI
+
+    # 2단계: 벼대 생성 과정 없이 소스코드 폴더 내 실제 빌드된 ep_setup.exe를 직접 타겟팅
+    - name: Create WiX File
       run: |
-        # 컴파일이 성공하면 생성될 진짜 파일 경로를 매핑하도록 설정
-        $wxsContent = @"
-        <?xml version="1.0" encoding="UTF-8"?>
-        <Wix xmlns="http://microsoft.com">
-          <Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
-            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
-            <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
-            <Directory Id="TARGETDIR" Name="SourceDir">
-              <Directory Id="ProgramFilesFolder">
-                <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher">
-                  <Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321">
-                    <File Id="EP_Exe" Name="ep_setup.exe" Source="build\Release\ep_setup.exe" KeyPath="yes" />
-                  </Component>
-                </Directory>
-              </Directory>
-            </Directory>
-            <Feature Id="MainFeature" Title="ExplorerPatcher" Level="1">
-              <ComponentRef Id="MainApp" />
-            </Feature>
-          </Product>
-        </Wix>
-        "@
-        Set-Content -Path real_build.wxs -Value $wxsContent -Encoding UTF8
+        [string]$wxs = '<?xml version="1.0" encoding="UTF-8"?><Wix xmlns="http://microsoft.com"><Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC"><Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" /><Media Id="1" Cabinet="media1.cab" EmbedCab="yes" /><Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="ProgramFilesFolder"><Directory Id="INSTALLFOLDER" Name="ExplorerPatcher"><Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321"><File Id="EP_Exe" Name="ep_setup.exe" Source="build\Release\ep_setup.exe" KeyPath="yes" /></Component></Directory></Directory></Directory><Feature Id="MainFeature" Title="ExplorerPatcher" Level="1"><ComponentRef Id="MainApp" /></Feature></Product></Wix>'
+        Set-Content -Path final_build.wxs -Value $wxs -Encoding UTF8
       shell: pwsh
 
-    # 3단계: 진짜 컴파일된 파일을 품은 MSI 패키징 생성
+    # 3단계: 가공된 바이너리를 기반으로 MSI 패키징 완성
     - name: Packaging Final MSI
       run: |
-        candle.exe real_build.wxs
-        light.exe -sval real_build.wixobj -out ExplorerPatcher.msi
+        candle.exe final_build.wxs
+        light.exe -sval final_build.wixobj -out ExplorerPatcher.msi
       shell: cmd
 
-    - uses: actions/upload-artifact@v4
+    # 4단계: 최종 아티팩트 업로드
+    - name: Upload Real MSI Artifact
+      uses: actions/upload-artifact@v4
       with:
         name: ExplorerPatcher-Final-MSI
         path: ExplorerPatcher.msi
