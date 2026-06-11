@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://microsoft.com">
-  <!-- WiX v3 규격에 맞춘 기본 패키지 설정 -->
+  <!-- 💡 규격에 맞춰 알파벳을 모두 대문자(A-F)로 수정한 식별자입니다. -->
   <Product Id="*" 
            Name="ExplorerPatcher" 
            Language="1042" 
            Version="1.0.0" 
            Manufacturer="ExplorerPatcher Team" 
-           UpgradeCode="12345678-1234-1234-1234-123456789abc">
+           UpgradeCode="12345678-1234-1234-1234-123456789ABC">
     
     <Package InstallerVersion="200" 
              Compressed="yes" 
@@ -14,10 +14,8 @@
 
     <MajorUpgrade DowngradeErrorMessage="이미 더 새로운 버전이 설치되어 있습니다." />
 
-    <!-- 캐비닛 파일 임베드 설정 -->
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- 설치 폴더 구조 정의 (WiX v3 스타일) -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
         <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher" />
@@ -25,12 +23,10 @@
       <Directory Id="DesktopFolder" Name="Desktop" />
     </Directory>
 
-    <!-- 설치 파일 구성 요소 설정 -->
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <Component Id="MainExecutable" Guid="87654321-4321-4321-4321-cba987654321">
-        <!-- 가상 컴퓨터 환경의 기본 파일을 파일 이름으로 매핑 -->
+      <!-- 💡 구성 요소의 Guid도 안전하게 대문자로 변경했습니다. -->
+      <Component Id="MainExecutable" Guid="87654321-4321-4321-4321-CBA987654321">
         <File Id="DummyFile" Source="README.md" Name="ExplorerPatcher.exe" KeyPath="yes">
-          <!-- 바탕화면 바로가기 생성 -->
           <Shortcut Id="DesktopShortcut" 
                     Directory="DesktopFolder" 
                     Name="ExplorerPatcher" 
@@ -40,7 +36,6 @@
       </Component>
     </ComponentGroup>
 
-    <!-- 실제 패키징 처리할 기능 등록 -->
     <Feature Id="MainFeature" Title="ExplorerPatcher Installation" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
     </Feature>
