@@ -1,0 +1,70 @@
+yamlname: Build ExplorerPatcher Real MSI
+
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+    # 1. 원본 저장소의 실제 C++ 소스코드와 내부 의존성(Submodule)을 전부 다운로드
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    # 2. 컴파일을 위한 윈도우 MSBuild 환경 구성
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v2
+
+    # 3. 실제 ExplorerPatcher 프로그램 소스코드 빌드 실행 (.exe 생성)
+    - name: Compile Real ExplorerPatcher
+      run: |
+        msbuild ExplorerPatcher.sln /p:Configuration=Release /p:Platform=x64
+      shell: cmd
+
+    # 4. 빌드 완료된 실제 실행 파일을 뼈대로 삼는 WiX 설정 파일(WXS) 생성
+    - name: Generate WiX Source File
+      run: |
+        $wxsContent = @"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://microsoft.com">
+          <Product Id="*" Name="ExplorerPatcher" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
+            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+            <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="ExplorerPatcher">
+                  <!-- 💡 msbuild 결과물 폴더에 생성된 진짜 ep_setup.exe를 소스로 지정합니다 -->
+                  <Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321">
+                    <File Id="EP_Exe" Name="ep_setup.exe" Source="build\Release\ep_setup.exe" KeyPath="yes" />
+                  </Component>
+                </Directory>
+              </Directory>
+            </Directory>
+            <Feature Id="MainFeature" Title="ExplorerPatcher" Level="1">
+              <ComponentRef Id="MainApp" />
+            </Feature>
+          </Product>
+        </Wix>
+        "@
+        Set-Content -Path real_build.wxs -Value $wxsContent -Encoding UTF8
+      shell: pwsh
+
+    # 5. 생성된 진짜 실행 파일을 품은 MSI 파일 빌드
+    - name: Packaging MSI
+      run: |
+        candle.exe real_build.wxs
+        light.exe -sval real_build.wixobj -out ExplorerPatcher.msi
+      shell: cmd
+
+    # 6. 최종 파일 배포 및 업로드
+    - name: Upload Real MSI Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ExplorerPatcher-Final-MSI
+        path: ExplorerPatcher.msi
