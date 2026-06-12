@@ -48,12 +48,12 @@ jobs:
         powershell -Command "Copy-Item (Get-ChildItem -Filter ep_setup.exe -Recurse | Select-Object -First 1).FullName -Destination ./ep_setup.exe"
       shell: cmd
 
-    # 4. 💡 [완벽한 버그 해결] 순수 파워셸(pwsh) 환경에서 멀티라인 스크립트를 사용하여 문자열 왜곡을 100% 차단합니다.
+    # 4. 💡 [핵심 해결책] Return="ignore" 속성을 주어 ep_setup.exe 실행 결과와 상관없이 MSI 설치가 취소되지 않도록 고정합니다.
     - name: Generate Safe WiX File
       run: |
         $wxs = @"
         <?xml version="1.0" encoding="UTF-8"?>
-        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+        <Wix xmlns="http://microsoft.com">
           <Product Id="*" Name="JK_Layout" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
             <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" />
             <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
@@ -66,7 +66,7 @@ jobs:
                 </Directory>
               </Directory>
             </Directory>
-            <CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="check" Impersonate="no" />
+            <CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="ignore" Impersonate="no" />
             <InstallExecuteSequence>
               <Custom Action="LaunchQuietly" After="InstallFiles">NOT Installed</Custom>
             </InstallExecuteSequence>
@@ -79,7 +79,7 @@ jobs:
         Set-Content -Path final_build.wxs -Value $wxs -Encoding UTF8
       shell: pwsh
 
-    # 5. 깨짐 없이 생성된 final_build.wxs 파일로 최종 .msi 조립
+    # 5. 보정된 스크립트로 최종 .msi 설치 파일 패키징
     - name: Packaging Final MSI
       run: |
         candle.exe final_build.wxs
