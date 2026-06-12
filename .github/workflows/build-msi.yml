@@ -18,7 +18,7 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
     
-    # 1. 컴파일러 버전 하향 패치
+    # 1. Lower compiler requirements to match runner tools
     - name: Patch VS 2026 to VS 2022 (Batch)
       run: |
         powershell -Command "(Get-Content BuildDependenciesRelease.bat) -replace 'Visual Studio 18 2026', 'Visual Studio 17 2022' | Set-Content BuildDependenciesRelease.bat"
@@ -29,7 +29,7 @@ jobs:
         powershell -Command "Get-ChildItem -Filter *.vcxproj -Recurse | ForEach-Object { (Get-Content $_.FullName) -replace '<PlatformToolset>v145</PlatformToolset>', '<PlatformToolset>v143</PlatformToolset>' | Set-Content $_.FullName }"
       shell: cmd
 
-    # 2. 의존성 및 본체 컴파일 진행
+    # 2. Compile real binaries
     - name: Restore and Build Dependencies
       run: |
         nuget restore ExplorerPatcher.sln
@@ -42,51 +42,20 @@ jobs:
         msbuild ExplorerPatcher.sln /p:Configuration="Release" /p:Platform="amd64"
       shell: cmd
 
-    # 3. 컴파일 완료된 진짜 실행 파일을 루트 경로로 복사
+    # 3. Position compiled binary next to your WXS file
     - name: Locate and Copy Real Binary
       run: |
         powershell -Command "Copy-Item (Get-ChildItem -Filter ep_setup.exe -Recurse | Select-Object -First 1).FullName -Destination ./ep_setup.exe"
       shell: cmd
 
-    # 4. 💡 [핵심 해결책] Return="ignore" 속성을 주어 ep_setup.exe 실행 결과와 상관없이 MSI 설치가 취소되지 않도록 고정합니다.
-    - name: Generate Safe WiX File
-      run: |
-        $wxs = @"
-        <?xml version="1.0" encoding="UTF-8"?>
-        <Wix xmlns="http://microsoft.com">
-          <Product Id="*" Name="JK_Layout" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
-            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" />
-            <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
-            <Directory Id="TARGETDIR" Name="SourceDir">
-              <Directory Id="ProgramFilesFolder">
-                <Directory Id="INSTALLFOLDER" Name="JK_Layout">
-                  <Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321">
-                    <File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" />
-                  </Component>
-                </Directory>
-              </Directory>
-            </Directory>
-            <CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="ignore" Impersonate="no" />
-            <InstallExecuteSequence>
-              <Custom Action="LaunchQuietly" After="InstallFiles">NOT Installed</Custom>
-            </InstallExecuteSequence>
-            <Feature Id="MainFeature" Title="JK_Layout" Level="1">
-              <ComponentRef Id="MainApp" />
-            </Feature>
-          </Product>
-        </Wix>
-        "@
-        Set-Content -Path final_build.wxs -Value $wxs -Encoding UTF8
-      shell: pwsh
-
-    # 5. 보정된 스크립트로 최종 .msi 설치 파일 패키징
+    # 4. Packaging using the static repository file directly
     - name: Packaging Final MSI
       run: |
-        candle.exe final_build.wxs
-        light.exe -sval final_build.wixobj -out ExplorerPatcher.msi
+        candle.exe ExplorerPatcher.wxs
+        light.exe -sval ExplorerPatcher.wixobj -out ExplorerPatcher.msi
       shell: cmd
 
-    # 6. 완성된 최종 진짜 .msi 파일 보관함 업로드
+    # 5. Upload artifact
     - name: Upload Real MSI Artifact
       uses: actions/upload-artifact@v4
       with:
