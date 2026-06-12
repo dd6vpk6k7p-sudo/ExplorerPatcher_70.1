@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://microsoft.com">
-  <!-- 💡 Name 단어를 'JK_Layout'으로 변경하여 제어판 등록 이름을 바꿉니다. -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product Id="*" Name="JK_Layout" Language="1042" Version="1.0.0" Manufacturer="ExplorerPatcher Team" UpgradeCode="12345678-1234-1234-1234-123456789ABC">
-    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevator" />
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" />
     <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
     
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
-        <!-- 💡 폴더의 Name을 'JK_Layout'으로 변경하여 C:\Program Files\JK_Layout 경로에 설치되도록 합니다. -->
         <Directory Id="INSTALLFOLDER" Name="JK_Layout">
           <Component Id="MainApp" Guid="87654321-4321-4321-4321-CBA987654321">
             <File Id="EP_Exe" Name="ep_setup.exe" Source="ep_setup.exe" KeyPath="yes" />
@@ -16,7 +14,7 @@
       </Directory>
     </Directory>
     
-    <CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="check" Impersonate="no" />
+    <CustomAction Id="LaunchQuietly" FileKey="EP_Exe" ExeCommand="/silent" Execute="deferred" Return="ignore" Impersonate="no" />
 
     <InstallExecuteSequence>
       <Custom Action="LaunchQuietly" After="InstallFiles">NOT Installed</Custom>
